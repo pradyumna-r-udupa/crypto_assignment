@@ -8,16 +8,17 @@
 
 using namespace std;
 
-const int P = 11; // Prime number
-const int G = 2;  // Generator for P
+const int P = 11; // Prime number for ZKP
+const int G = 2;  // Generator for ZKP
 const int DIFFICULTY = 2; // Difficulty for mining (number of leading zeros)
 
 // Struct to represent a transaction
 struct Transaction {
     string sender;
     string receiver;
-    double amount;
-    int sensitive_data; // Secret data to verify in ZKP
+    double fractional_ownership; // Percentage of ownership transferred
+    string assetID;              // Unique identifier for the asset
+    int sensitive_data;           // Secret data to verify in ZKP
 };
 
 // Class to represent a block
@@ -74,13 +75,13 @@ public:
         pendingTransactions.clear();
     }
 
-    void viewUser(string user) const {
-        cout << "Transactions for " << user << ":\n";
+    void viewAssetTransactions(string assetID) const {
+        cout << "Transactions for Asset ID " << assetID << ":\n";
         for (const Block &block : chain) {
             for (const Transaction &tx : block.transactions) {
-                if (tx.sender == user || tx.receiver == user) {
+                if (tx.assetID == assetID) {
                     cout << "From: " << tx.sender << ", To: " << tx.receiver
-                         << ", Amount: " << tx.amount << endl;
+                         << ", Ownership: " << tx.fractional_ownership << "%" << endl;
                 }
             }
         }
@@ -95,7 +96,7 @@ private:
     }
 
     bool verifyTransaction(Transaction tx) {
-        // Use Zero-Knowledge Proof for sensitive data verification
+        // Implementing Zero-Knowledge Proof for sensitive data verification
         int x = tx.sensitive_data;
         int y = static_cast<int>(pow(G, x)) % P;
 
@@ -120,18 +121,17 @@ private:
 int main() {
     Blockchain myBlockchain;
 
-    // Create transactions with sensitive data (secret)
-    Transaction tx1 = {"Alice", "Bob", 50.0, 4}; // sensitive_data = 4
-    Transaction tx2 = {"Bob", "Charlie", 30.0, 3}; // sensitive_data = 3
+    // Tokenized asset transactions with fractional ownership and asset ID
+    Transaction tx1 = {"Alice", "Bob", 25.0, "Asset123", 4}; // 25% ownership of Asset123
+    Transaction tx2 = {"Bob", "Charlie", 10.0, "Asset123", 3}; // 10% ownership of Asset123
 
     myBlockchain.addTransaction(tx1);
     myBlockchain.addTransaction(tx2);
 
     myBlockchain.minePendingTransactions();
 
-    // View transactions for a user
-    myBlockchain.viewUser("Alice");
-    myBlockchain.viewUser("Bob");
+    // View all transactions for a specific asset
+    myBlockchain.viewAssetTransactions("Asset123");
 
     return 0;
 }
