@@ -120,18 +120,60 @@ private:
 
 int main() {
     Blockchain myBlockchain;
+    int choice;
 
-    // Tokenized asset transactions with fractional ownership and asset ID
-    Transaction tx1 = {"Alice", "Bob", 25.0, "Asset123", 4}; // 25% ownership of Asset123
-    Transaction tx2 = {"Bob", "Charlie", 10.0, "Asset123", 3}; // 10% ownership of Asset123
+    cout << "Welcome to the Asset Tokenization Blockchain\n";
 
-    myBlockchain.addTransaction(tx1);
-    myBlockchain.addTransaction(tx2);
+    while (true) {
+        cout << "\nSelect an option:\n";
+        cout << "1. Add a Transaction\n";
+        cout << "2. Mine Transactions\n";
+        cout << "3. View Transactions for an Asset\n";
+        cout << "4. Exit\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
 
-    myBlockchain.minePendingTransactions();
+        if (choice == 1) {
+            // Take user input for a new transaction
+            Transaction tx;
+            cout << "Enter sender's name: ";
+            cin >> tx.sender;
+            cout << "Enter receiver's name: ";
+            cin >> tx.receiver;
+            cout << "Enter fractional ownership percentage (e.g., 25.0): ";
+            cin >> tx.fractional_ownership;
+            cout << "Enter asset ID: ";
+            cin >> tx.assetID;
+            cout << "Enter sensitive data (integer) for ZKP verification: ";
+            cin >> tx.sensitive_data;
 
-    // View all transactions for a specific asset
-    myBlockchain.viewAssetTransactions("Asset123");
+            myBlockchain.addTransaction(tx);
+            cout << "Transaction added for verification.\n";
+
+        } else if (choice == 2) {
+            // Mine all pending transactions
+            cout << "Mining pending transactions...\n";
+            myBlockchain.minePendingTransactions();
+            cout << "Transactions mined and added to the blockchain.\n";
+
+        } else if (choice == 3) {
+            // View transactions for a specific asset
+            string assetID;
+            cout << "Enter asset ID to view transactions: ";
+            cin >> assetID;
+
+            myBlockchain.viewAssetTransactions(assetID);
+
+        } else if (choice == 4) {
+            // Exit
+            cout << "Exiting...\n";
+            break;
+
+        } else {
+            cout << "Invalid choice. Please try again.\n";
+        }
+    }
 
     return 0;
 }
+
