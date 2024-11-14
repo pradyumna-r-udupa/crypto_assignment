@@ -1,23 +1,59 @@
-#include <iostream>
-#include <vector>
-#include <string>
-#include <ctime>
-#include <random>
-#include <cmath>
-#include <unordered_map>
-
+#include<bits/stdc++.h>
 using namespace std;
 
-const int P = 11; // Prime number
-const int G = 2;  // Generator for P
-const int DIFFICULTY = 2; // Difficulty for mining (number of leading zeros)
+class Wallet {
+public:
+    unordered_map<string, double> assets; // Asset ID -> Fractional ownership
+
+    // Adds ownership to a specific asset; initializes to 1000 if asset does not exist
+    void addOwnership(const string &assetID, double amount) {
+        if (assets.find(assetID) == assets.end()) {
+            assets[assetID] = 1000.0;  // Set default value for new assets
+        }
+        assets[assetID] += amount;
+    }
+
+    // Deducts ownership; initializes to 1000 if asset does not exist
+    bool deductOwnership(const string &assetID, double amount) {
+        if (assets.find(assetID) == assets.end()) {
+            assets[assetID] = 1000.0;  // Set default value for new assets
+        }
+        if (assets[assetID] >= amount) {
+            assets[assetID] -= amount;
+            return true;
+        }
+        return false; // Insufficient ownership
+    }
+
+    // Retrieves ownership; initializes to 1000 if asset does not exist
+    double getOwnership(const string &assetID) {
+        if (assets.find(assetID) == assets.end()) {
+            assets[assetID] = 1000.0; // Set default value for new assets
+        }
+        return assets[assetID];
+    }
+
+    // View all assets in the wallet
+    void viewAssets() const {
+        cout << "Assets in Wallet:\n";
+        for (const auto &entry : assets) {
+            cout << "Asset ID: " << entry.first << ", Ownership: " << entry.second << "%\n";
+        }
+    }
+};
+
+
+const int P = 11; // Prime number for ZKP
+const int G = 2;  // Generator for ZKP
+const int DIFFICULTY = 0; // Difficulty for mining (number of leading zeros)
 
 // Struct to represent a transaction
 struct Transaction {
     string sender;
     string receiver;
-    double amount;
-    int sensitive_data; // Secret data to verify in ZKP
+    double fractional_ownership; // Percentage of ownership transferred
+    string assetID;              // Unique identifier for the asset
+    int sensitive_data;           // Secret data to verify in ZKP
 };
 
 // Class to represent a block
@@ -36,7 +72,6 @@ public:
         hash = calculateHash();
     }
 
-    // Function to calculate the hash of the block (simplified)
     string calculateHash() const {
         return to_string(index) + to_string(timestamp) + to_string(nonce) + previousHash;
     }
@@ -51,7 +86,6 @@ public:
     }
 };
 
-// Blockchain class
 class Blockchain {
 public:
     Blockchain() {
@@ -60,10 +94,17 @@ public:
     }
 
     void addTransaction(Transaction tx) {
+        // Verify transaction
         if (verifyTransaction(tx)) {
-            pendingTransactions.push_back(tx);
+            // Check sender's wallet for enough ownership
+            if (wallets[tx.sender].deductOwnership(tx.assetID, tx.fractional_ownership)) {
+                pendingTransactions.push_back(tx);
+                wallets[tx.receiver].addOwnership(tx.assetID, tx.fractional_ownership);
+            } else {
+                cout << "Transaction failed: Insufficient ownership in sender's wallet.\n";
+            }
         } else {
-            cout << "Transaction failed verification!" << endl;
+            cout << "Transaction failed verification!\n";
         }
     }
 
@@ -74,42 +115,48 @@ public:
         pendingTransactions.clear();
     }
 
-    void viewUser(string user) const {
-        cout << "Transactions for " << user << ":\n";
+    void viewAssetTransactions(const string &assetID) const {
+        cout << "Transactions for Asset ID " << assetID << ":\n";
         for (const Block &block : chain) {
             for (const Transaction &tx : block.transactions) {
-                if (tx.sender == user || tx.receiver == user) {
+                if (tx.assetID == assetID) {
                     cout << "From: " << tx.sender << ", To: " << tx.receiver
-                         << ", Amount: " << tx.amount << endl;
+                         << ", Ownership: " << tx.fractional_ownership << "%" << endl;
                 }
             }
+        }
+    }
+
+    void viewUserWallet(const string &user) const {
+        auto it = wallets.find(user);
+        if (it != wallets.end()) {
+            cout << "Wallet for user: " << user << endl;
+            it->second.viewAssets();
+        } else {
+            cout << "No wallet found for user: " << user << endl;
         }
     }
 
 private:
     vector<Block> chain;
     vector<Transaction> pendingTransactions;
+    unordered_map<string, Wallet> wallets; // Mapping of username to Wallet
 
-    Block createBlock(vector<Transaction> txs, string prevHash) {
+    Block createBlock(vector<Transaction> txs, const string &prevHash) {
         return Block(chain.size(), txs, prevHash);
     }
 
     bool verifyTransaction(Transaction tx) {
-        // Use Zero-Knowledge Proof for sensitive data verification
+        // Zero-Knowledge Proof verification as defined earlier
         int x = tx.sensitive_data;
         int y = static_cast<int>(pow(G, x)) % P;
 
-        // Step 1: Alice chooses random r
         int r = rand() % (P - 1);
         int h = static_cast<int>(pow(G, r)) % P;
 
-        // Step 2: Bob sends a random bit
         int b = rand() % 2;
-
-        // Step 3: Alice sends s
         int s = (r + b * x) % (P - 1);
 
-        // Step 4: Bob verifies
         int left = static_cast<int>(pow(G, s)) % P;
         int right = (h * static_cast<int>(pow(y, b)) % P) % P;
 
@@ -119,19 +166,67 @@ private:
 
 int main() {
     Blockchain myBlockchain;
+    int choice;
 
-    // Create transactions with sensitive data (secret)
-    Transaction tx1 = {"Alice", "Bob", 50.0, 4}; // sensitive_data = 4
-    Transaction tx2 = {"Bob", "Charlie", 30.0, 3}; // sensitive_data = 3
+    cout << "Welcome to the Asset Tokenization Blockchain\n";
 
-    myBlockchain.addTransaction(tx1);
-    myBlockchain.addTransaction(tx2);
+    while (true) {
+        cout << "\nSelect an option:\n";
+        cout << "1. Add a Transaction\n";
+        cout << "2. Mine Transactions\n";
+        cout << "3. View Transactions for an Asset\n";
+        cout << "4. View User Wallet\n";
+        cout << "5. Exit\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
 
-    myBlockchain.minePendingTransactions();
+        if (choice == 1) {
+            // Take user input for a new transaction
+            Transaction tx;
+            cout << "Enter sender's name: ";
+            cin >> tx.sender;
+            cout << "Enter receiver's name: ";
+            cin >> tx.receiver;
+            cout << "Enter fractional ownership percentage (e.g., 25.0): ";
+            cin >> tx.fractional_ownership;
+            cout << "Enter asset ID: ";
+            cin >> tx.assetID;
+            cout << "Enter sensitive data (integer) for ZKP verification: ";
+            cin >> tx.sensitive_data;
 
-    // View transactions for a user
-    myBlockchain.viewUser("Alice");
-    myBlockchain.viewUser("Bob");
+            myBlockchain.addTransaction(tx);
+            cout << "Transaction added for verification.\n";
+
+        } else if (choice == 2) {
+            // Mine all pending transactions
+            cout << "Mining pending transactions...\n";
+            myBlockchain.minePendingTransactions();
+            cout << "Transactions mined and added to the blockchain.\n";
+
+        } else if (choice == 3) {
+            // View transactions for a specific asset
+            string assetID;
+            cout << "Enter asset ID to view transactions: ";
+            cin >> assetID;
+
+            myBlockchain.viewAssetTransactions(assetID);
+
+        } else if (choice == 4) {
+            // View a specific user's wallet
+            string user;
+            cout << "Enter username to view wallet: ";
+            cin >> user;
+            myBlockchain.viewUserWallet(user);
+
+        } else if (choice == 5) {
+            // Exit
+            cout << "Exiting...\n";
+            break;
+
+        } else {
+            cout << "Invalid choice. Please try again.\n";
+        }
+    }
 
     return 0;
 }
