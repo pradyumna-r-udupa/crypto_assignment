@@ -5,18 +5,22 @@ class Wallet {
 public:
     unordered_map<string, double> assets; // Asset ID -> Fractional ownership
 
-    // Adds ownership to a specific asset; initializes to 1000 if asset does not exist
+
     void addOwnership(const string &assetID, double amount) {
         if (assets.find(assetID) == assets.end()) {
-            assets[assetID] = 1000.0;  // Set default value for new assets
+            assets[assetID] = 0.0;  // Initialize to 0% ownership if asset is new
         }
-        assets[assetID] += amount;
+        if (assets[assetID] + amount <= 100.0) {
+            assets[assetID] += amount;
+        } else {
+            cout << "Error: Adding " << amount << "% would exceed 100% ownership for asset " << assetID << ".\n";
+        }
     }
 
     // Deducts ownership; initializes to 1000 if asset does not exist
     bool deductOwnership(const string &assetID, double amount) {
         if (assets.find(assetID) == assets.end()) {
-            assets[assetID] = 1000.0;  // Set default value for new assets
+            assets[assetID] = 100.0;  // Set default value for new assets
         }
         if (assets[assetID] >= amount) {
             assets[assetID] -= amount;
@@ -28,7 +32,7 @@ public:
     // Retrieves ownership; initializes to 1000 if asset does not exist
     double getOwnership(const string &assetID) {
         if (assets.find(assetID) == assets.end()) {
-            assets[assetID] = 1000.0; // Set default value for new assets
+            assets[assetID] = 100.0; // Set default value for new assets
         }
         return assets[assetID];
     }
