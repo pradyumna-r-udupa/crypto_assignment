@@ -8,7 +8,7 @@ public:
 
     void addOwnership(const string &assetID, double amount) {
         if (assets.find(assetID) == assets.end()) {
-            assets[assetID] = 0.0;  // Initialize to 0% ownership if asset is new
+            assets[assetID] = 0;  // Initialize to 0% ownership if asset is new
         }
         if (assets[assetID] + amount <= 100.0) {
             assets[assetID] += amount;
@@ -32,7 +32,7 @@ public:
     // Retrieves ownership; initializes to 1000 if asset does not exist
     double getOwnership(const string &assetID) {
         if (assets.find(assetID) == assets.end()) {
-            assets[assetID] = 100.0; // Set default value for new assets
+            assets[assetID] = 0; // Set default value for new assets
         }
         return assets[assetID];
     }
@@ -97,13 +97,29 @@ public:
         chain.push_back(createBlock(vector<Transaction>(), "0"));
     }
 
-    void addTransaction(Transaction tx) {
-        // Verify transaction
+   void addTransaction(Transaction tx) {
+        // Verify transaction using Zero-Knowledge Proof
         if (verifyTransaction(tx)) {
-            // Check sender's wallet for enough ownership
-            if (wallets[tx.sender].deductOwnership(tx.assetID, tx.fractional_ownership)) {
-                pendingTransactions.push_back(tx);
-                wallets[tx.receiver].addOwnership(tx.assetID, tx.fractional_ownership);
+            // Initialize ownership for sender and receiver if asset is new
+            if (wallets[tx.sender].getOwnership(tx.assetID) == 0.0 && wallets[tx.receiver].getOwnership(tx.assetID) == 0.0) {
+                wallets[tx.sender].assets[tx.assetID] = 100.0; // Sender owns 100% of new assets by default
+            }
+
+            double senderOwnership = wallets[tx.sender].getOwnership(tx.assetID);
+            double receiverOwnership = wallets[tx.receiver].getOwnership(tx.assetID);
+
+            // Check if sender has enough ownership
+            if (senderOwnership >= tx.fractional_ownership) {
+                // Check if receiver's ownership will exceed 100%
+                if (receiverOwnership + tx.fractional_ownership <= 100.0) {
+                    // Process the transaction
+                    wallets[tx.sender].deductOwnership(tx.assetID, tx.fractional_ownership);
+                    wallets[tx.receiver].addOwnership(tx.assetID, tx.fractional_ownership);
+                    pendingTransactions.push_back(tx);
+                    cout << "Transaction successfully added for verification.\n";
+                } else {
+                    cout << "Transaction failed: Receiver's ownership would exceed 100%.\n";
+                }
             } else {
                 cout << "Transaction failed: Insufficient ownership in sender's wallet.\n";
             }
@@ -199,7 +215,7 @@ int main() {
             cin >> tx.sensitive_data;
 
             myBlockchain.addTransaction(tx);
-            cout << "Transaction added for verification.\n";
+            
 
         } else if (choice == 2) {
             // Mine all pending transactions
